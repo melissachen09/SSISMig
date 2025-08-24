@@ -42,10 +42,10 @@ class DBTProjectGenerator:
         # Load prompt templates
         self.template_dir = Path(__file__).parent / "prompts"
         
-        with open(self.template_dir / "dbt_system.txt", "r") as f:
+        with open(self.template_dir / "dbt_system.txt", "r", encoding="utf-8") as f:
             self.system_prompt = f.read()
         
-        with open(self.template_dir / "dbt_user_template.md", "r") as f:
+        with open(self.template_dir / "dbt_user_template.md", "r", encoding="utf-8") as f:
             self.user_template = f.read()
     
     def generate_project(self, ir_package: IRPackage, output_dir: str) -> Dict[str, Any]:

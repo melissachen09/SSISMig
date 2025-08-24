@@ -1,0 +1,18 @@
+# Schema configuration for SSIS migrated models
+# Generated from package: Package1
+
+models:
+- columns:
+  - description: Primary key
+    name: id
+    tests:
+    - unique
+    - not_null
+  description: Staging model example - update with actual models
+  name: stg_example
+  tests:
+  - unique
+  - not_null
+sources: []
+version: 2
+

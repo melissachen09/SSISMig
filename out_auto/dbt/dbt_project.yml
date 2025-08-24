@@ -1,0 +1,33 @@
+# dbt project configuration
+# Generated from SSIS package: Package1
+# Migration timestamp: 2025-08-24T14:06:44.163553
+
+analysis-paths:
+- analyses
+clean-targets:
+- target
+- dbt_packages
+config-version: 2
+macro-paths:
+- macros
+model-paths:
+- models
+models:
+  package1:
+    intermediate:
+      +materialized: table
+    marts:
+      +materialized: table
+    staging:
+      +materialized: view
+name: package1
+seed-paths:
+- seeds
+snapshot-paths:
+- snapshots
+target-path: target
+test-paths:
+- tests
+vars: {}
+version: 1.0.0
+

@@ -1,0 +1,34 @@
+{
+  "package_name": "Package1",
+  "source_file": "c:\\Projects\\SSISMig\\data\\Q1.dtsx",
+  "migration_mode": "dbt",
+  "parse_report": {
+    "package_name": "Q1",
+    "source_file": "c:\\Projects\\SSISMig\\data\\Q1.dtsx",
+    "migration_mode": "dbt",
+    "total_executables": 1,
+    "supported_executables": 1,
+    "unsupported_executables": [],
+    "encrypted_properties": [],
+    "manual_review_items": [],
+    "sql_dialect_conversions": [],
+    "generated_files": [],
+    "warnings": [
+      "Package uses 'DontSaveSensitive' protection - ensure all connections are properly configured in target environment",
+      "Tasks with no precedence constraints: Package\\Data Flow Task"
+    ],
+    "errors": [],
+    "success": true
+  },
+  "generated_files": [
+    "c:\\Projects\\SSISMig\\out_dbt\\dbt\\dbt_project.yml",
+    "c:\\Projects\\SSISMig\\out_dbt\\dbt\\models\\schema.yml",
+    "c:\\Projects\\SSISMig\\out_dbt\\dbt\\profiles.yml.template"
+  ],
+  "summary": {
+    "total_tasks": 1,
+    "supported_tasks": 1,
+    "warnings": 2,
+    "manual_review_items": 0
+  }
+}

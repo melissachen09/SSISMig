@@ -1,0 +1,29 @@
+# dbt profiles template for SSIS migration
+# Copy to ~/.dbt/profiles.yml and update with your Snowflake details
+
+ssis_migration:
+  target: dev
+  outputs:
+    dev:
+      type: snowflake
+      account: "{{ env_var('DBT_SNOWFLAKE_ACCOUNT') }}"
+      user: "{{ env_var('DBT_SNOWFLAKE_USER') }}"
+      password: "{{ env_var('DBT_SNOWFLAKE_PASSWORD') }}"
+      database: "{{ env_var('DBT_SNOWFLAKE_DATABASE') }}"
+      warehouse: "{{ env_var('DBT_SNOWFLAKE_WAREHOUSE') }}"
+      schema: "{{ env_var('DBT_SNOWFLAKE_SCHEMA') }}"
+      role: "{{ env_var('DBT_SNOWFLAKE_ROLE') }}"
+      threads: 4
+      keepalives_idle: 0
+      
+    prod:
+      type: snowflake
+      account: "{{ env_var('DBT_SNOWFLAKE_ACCOUNT') }}"
+      user: "{{ env_var('DBT_SNOWFLAKE_USER') }}"
+      password: "{{ env_var('DBT_SNOWFLAKE_PASSWORD') }}"
+      database: "{{ env_var('DBT_SNOWFLAKE_DATABASE_PROD') }}"
+      warehouse: "{{ env_var('DBT_SNOWFLAKE_WAREHOUSE') }}"
+      schema: "{{ env_var('DBT_SNOWFLAKE_SCHEMA_PROD') }}"
+      role: "{{ env_var('DBT_SNOWFLAKE_ROLE') }}"
+      threads: 8
+      keepalives_idle: 0
