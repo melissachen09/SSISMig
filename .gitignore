@@ -150,6 +150,9 @@ Thumbs.db
 # SSIS Migration specific
 *.dtsx.bak
 output/
+output_project/
+test_project_migration/
 temp/
 logs/
-*.api_keytest_env/
+*.api_key
+test_env/
