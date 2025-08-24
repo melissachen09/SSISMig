@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 from typing import Dict, List, Optional, Any
 import json
+from datetime import datetime
 from jinja2 import Environment, FileSystemLoader, Template
 from anthropic import Anthropic
 
@@ -41,11 +42,11 @@ class AirflowDAGGenerator:
         self.template_dir = Path(__file__).parent / "prompts"
         self.jinja_env = Environment(loader=FileSystemLoader(self.template_dir))
         
-        # Load prompt templates
-        with open(self.template_dir / "airflow_system.txt", "r") as f:
+        # Load prompt templates using UTF-8 to avoid locale issues on Windows
+        with open(self.template_dir / "airflow_system.txt", "r", encoding="utf-8") as f:
             self.system_prompt = f.read()
         
-        with open(self.template_dir / "airflow_user_template.md", "r") as f:
+        with open(self.template_dir / "airflow_user_template.md", "r", encoding="utf-8") as f:
             self.user_template = f.read()
     
     def generate_dag(self, ir_package: IRPackage, output_dir: str) -> Dict[str, Any]:
@@ -115,8 +116,12 @@ class AirflowDAGGenerator:
         # Convert to dict and add Airflow-specific annotations
         ir_dict = ir_package.model_dump()
         
-        # Convert SQL dialects
+        # Convert SQL dialects and annotate executables
         for executable in ir_dict.get("executables", []):
+            # Ensure we have a safe task_id for use in template
+            obj_name = executable.get("object_name") or executable.get("name") or "task"
+            executable["task_id"] = self._safe_name(obj_name)
+
             if executable.get("sql"):
                 converted_sql = self.sql_converter.convert_to_snowflake(
                     executable["sql"], 
@@ -127,9 +132,17 @@ class AirflowDAGGenerator:
             # Annotate executables with Airflow mappings
             executable["airflow_operator"] = self._map_to_airflow_operator(executable)
         
-        # Add dependency graph information
+        # Add dependency graph information and safe edge IDs
         ir_dict["dependency_graph"] = self._build_dependency_graph(ir_package.edges)
         ir_dict["parallel_groups"] = self._identify_parallel_groups(ir_package.edges)
+        # Precompute safe from/to identifiers for edges
+        for edge in ir_dict.get("edges", []):
+            from_raw = edge.get("from_task", "")
+            to_raw = edge.get("to_task", "")
+            from_last = (from_raw.replace("/", "\\").split("\\") or [from_raw])[-1]
+            to_last = (to_raw.replace("/", "\\").split("\\") or [to_raw])[-1]
+            edge["from_id"] = self._safe_name(from_last)
+            edge["to_id"] = self._safe_name(to_last)
         
         return ir_dict
     
@@ -234,46 +247,46 @@ def log_task_complete(task_name):
     logging.info(f"Completed SSIS migrated task: {task_name}")
 
 {% for executable in executables %}
-{% if "EXECUTE_SQL" in str(executable.type) %}
+{% if "EXECUTE_SQL" in executable.type %}
 # Task: {{ executable.object_name }} (Execute SQL)
-{{ executable.object_name.replace(' ', '_').lower() }}_task = SnowflakeOperator(
-    task_id='{{ executable.object_name.replace(" ", "_").lower() }}',
+{{ safe_name(executable.object_name) }} = SnowflakeOperator(
+    task_id='{{ executable.task_id }}',
     sql=\"\"\"{{ executable.sql | default("-- TODO: Add SQL statement") }}\"\"\",
     snowflake_conn_id=SNOWFLAKE_CONN_ID,
     dag=dag,
 )
 
-{% elif "DATA_FLOW" in str(executable.type) %}
+{% elif "DATA_FLOW" in executable.type %}
 # Task Group: {{ executable.object_name }} (Data Flow)
-with TaskGroup(group_id='{{ executable.object_name.replace(" ", "_").lower() }}', dag=dag) as {{ executable.object_name.replace(' ', '_').lower() }}_group:
+with TaskGroup(group_id='{{ executable.task_id }}', dag=dag) as {{ safe_name(executable.object_name) }}:
     {% for component in executable.components %}
     # TODO: Implement component {{ component.name }} ({{ component.component_type }})
-    {{ component.name.replace(' ', '_').lower() }}_task = DummyOperator(
-        task_id='{{ component.name.replace(" ", "_").lower() }}',
+    {{ safe_name(component.name) }} = DummyOperator(
+        task_id='{{ safe_name(component.name) }}',
         dag=dag,
     )
     {% endfor %}
 
-{% elif "SCRIPT" in str(executable.type) %}
+{% elif "SCRIPT" in executable.type %}
 # Task: {{ executable.object_name }} (Script Task)
-def {{ executable.object_name.replace(' ', '_').lower() }}_func(**context):
+def {{ safe_name(executable.object_name) }}_func(**context):
     # TODO: Implement script logic from SSIS Script Task
     log_task_start("{{ executable.object_name }}")
     # Add your Python code here
     log_task_complete("{{ executable.object_name }}")
     return "success"
 
-{{ executable.object_name.replace(' ', '_').lower() }}_task = PythonOperator(
-    task_id='{{ executable.object_name.replace(" ", "_").lower() }}',
-    python_callable={{ executable.object_name.replace(' ', '_').lower() }}_func,
+{{ safe_name(executable.object_name) }} = PythonOperator(
+    task_id='{{ executable.task_id }}',
+    python_callable={{ safe_name(executable.object_name) }}_func,
     dag=dag,
 )
 
 {% else %}
 # Task: {{ executable.object_name }} ({{ executable.type }})
 # TODO: Implement {{ executable.type }} task type
-{{ executable.object_name.replace(' ', '_').lower() }}_task = DummyOperator(
-    task_id='{{ executable.object_name.replace(" ", "_").lower() }}',
+{{ safe_name(executable.object_name) }} = DummyOperator(
+    task_id='{{ executable.task_id }}',
     dag=dag,
 )
 
@@ -282,20 +295,18 @@ def {{ executable.object_name.replace(' ', '_').lower() }}_func(**context):
 
 # Set up dependencies (precedence constraints)
 {% for edge in edges %}
-{% set from_task = edge.from_task.split('\\')[-1].replace(' ', '_').lower() %}
-{% set to_task = edge.to_task.split('\\')[-1].replace(' ', '_').lower() %}
 # Precedence: {{ edge.from_task }} -> {{ edge.to_task }} ({{ edge.condition }})
 {% if edge.condition == "Success" %}
-{{ from_task }} >> {{ to_task }}
+{{ edge.from_id }} >> {{ edge.to_id }}
 {% elif edge.condition == "Failure" %}
-{{ to_task }}.set_upstream({{ from_task }})
-{{ to_task }}.trigger_rule = TriggerRule.ONE_FAILED
+{{ edge.to_id }}.set_upstream({{ edge.from_id }})
+{{ edge.to_id }}.trigger_rule = TriggerRule.ONE_FAILED
 {% elif edge.condition == "Completion" %}
-{{ to_task }}.set_upstream({{ from_task }})
-{{ to_task }}.trigger_rule = TriggerRule.ALL_DONE
+{{ edge.to_id }}.set_upstream({{ edge.from_id }})
+{{ edge.to_id }}.trigger_rule = TriggerRule.ALL_DONE
 {% else %}
 # TODO: Implement expression-based precedence for {{ edge.expression | default("complex condition") }}
-{{ from_task }} >> {{ to_task }}
+{{ edge.from_id }} >> {{ edge.to_id }}
 {% endif %}
 {% endfor %}
 
@@ -314,7 +325,8 @@ def {{ executable.object_name.replace(' ', '_').lower() }}_func(**context):
             parameters=ir_data.get("parameters", []),
             variables=ir_data.get("variables", []),
             executables=ir_data.get("executables", []),
-            edges=ir_data.get("edges", [])
+            edges=ir_data.get("edges", []),
+            safe_name=self._safe_name,
         )
     
     def _map_to_airflow_operator(self, executable: Dict[str, Any]) -> str:
