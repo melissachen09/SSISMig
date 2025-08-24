@@ -152,4 +152,4 @@ Thumbs.db
 output/
 temp/
 logs/
-*.api_key
+*.api_keytest_env/
