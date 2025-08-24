@@ -21,13 +21,15 @@ logger = logging.getLogger(__name__)
 class DTSXToIRConverter:
     """Main converter from DTSX to Intermediate Representation."""
     
-    def __init__(self, password: Optional[str] = None):
+    def __init__(self, password: Optional[str] = None, anthropic_key: Optional[str] = None):
         """Initialize converter.
         
         Args:
             password: Optional password for encrypted packages
+            anthropic_key: Optional Anthropic API key for AI enhancement
         """
         self.password = password
+        self.anthropic_key = anthropic_key
         self.security_handler = SSISSecurityHandler(password)
         
     def convert_file(self, dtsx_path: str) -> tuple[IRPackage, MigrationReport]:
@@ -253,3 +255,27 @@ class DTSXToIRConverter:
                             logger.warning(f"Component {comp.id} has unresolved input: {input_id}")
         
         return errors
+    
+    def dtsx_to_ir(self, dtsx_path: Path) -> IRPackage:
+        """Convert DTSX file to IR - simple interface for project converter.
+        
+        Args:
+            dtsx_path: Path to DTSX file
+            
+        Returns:
+            IRPackage object
+        """
+        ir_package, _ = self.convert_file(str(dtsx_path))
+        return ir_package
+    
+    def dtsx_string_to_ir(self, dtsx_content: str, package_name: str) -> IRPackage:
+        """Convert DTSX content string to IR.
+        
+        Args:
+            dtsx_content: DTSX XML content as string
+            package_name: Name of the package
+            
+        Returns:
+            IRPackage object
+        """
+        return self._parse_dtsx_content(dtsx_content, package_name)

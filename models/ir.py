@@ -207,11 +207,147 @@ class IRPackage(BaseModel):
         return [exe for exe in self.executables if exe.type == ExecutableType.EXECUTE_SQL]
 
 
+class ProjectParameter(BaseModel):
+    """Project-scoped parameter available to all packages."""
+    name: str
+    data_type: str = Field(description="Data type (e.g., DateTime, Int32, String)")
+    value: Optional[Any] = None
+    description: Optional[str] = None
+    sensitive: bool = False
+
+
+class ProjectConnectionManager(BaseModel):
+    """Project-scoped connection manager available to all packages."""
+    id: str = Field(description="Unique identifier")
+    name: str = Field(description="Display name")
+    type: ConnectionType
+    connection_string: str
+    provider: str
+    description: Optional[str] = None
+    protection_level: ProtectionLevel = ProtectionLevel.ENCRYPT_SENSITIVE_WITH_USER_KEY
+
+
+class PackageDependency(BaseModel):
+    """Cross-package dependency via ExecutePackageTask."""
+    parent_package: str = Field(description="Package containing ExecutePackageTask")
+    child_package: str = Field(description="Package being executed")
+    task_name: str = Field(description="Name of ExecutePackageTask")
+    task_id: str = Field(description="Full task ID")
+    precedence_constraint: Optional[PrecedenceCondition] = None
+    condition_expression: Optional[str] = None
+    
+
+class PackageReference(BaseModel):
+    """Reference to a package within the project."""
+    name: str
+    file_path: str
+    relative_path: str = Field(description="Path relative to project root")
+    entry_point: bool = False
+    transformation_only: bool = False
+
+
+class IRProject(BaseModel):
+    """Complete Intermediate Representation of an SSIS project with multiple packages."""
+    project_name: str
+    project_version: str = "1.0"
+    target_server_version: str = "SQL2019"
+    protection_level: ProtectionLevel = ProtectionLevel.ENCRYPT_SENSITIVE_WITH_USER_KEY
+    
+    # Project-level artifacts
+    project_parameters: List[ProjectParameter] = Field(default_factory=list)
+    project_connections: List[ProjectConnectionManager] = Field(default_factory=list)
+    
+    # Package structure
+    packages: List[PackageReference] = Field(default_factory=list)
+    package_irs: Dict[str, IRPackage] = Field(default_factory=dict, description="IR for each package")
+    dependencies: List[PackageDependency] = Field(default_factory=list)
+    
+    # Analysis results
+    entry_points: List[str] = Field(default_factory=list, description="Packages that are not called by others")
+    execution_chains: List[Dict[str, Any]] = Field(default_factory=list)
+    isolated_packages: List[str] = Field(default_factory=list)
+    
+    class Config:
+        """Pydantic configuration."""
+        use_enum_values = True
+    
+    def get_transformation_packages(self) -> List[str]:
+        """Get packages that only contain transformations (suitable for dbt)."""
+        transform_packages = []
+        for pkg_name, pkg_ir in self.package_irs.items():
+            if pkg_ir.is_transformation_only():
+                transform_packages.append(pkg_name)
+        return transform_packages
+    
+    def get_orchestration_packages(self) -> List[str]:
+        """Get packages that contain orchestration logic (need Airflow)."""
+        orchestration_packages = []
+        for pkg_name, pkg_ir in self.package_irs.items():
+            if not pkg_ir.is_transformation_only():
+                orchestration_packages.append(pkg_name)
+        return orchestration_packages
+    
+    def has_cross_package_dependencies(self) -> bool:
+        """Check if project has ExecutePackageTask dependencies between packages."""
+        return len(self.dependencies) > 0
+    
+    def get_dependency_graph(self) -> Dict[str, List[str]]:
+        """Build dependency graph for package execution order."""
+        graph = {pkg.name: [] for pkg in self.packages}
+        for dep in self.dependencies:
+            if dep.parent_package in graph:
+                graph[dep.parent_package].append(dep.child_package)
+        return graph
+    
+    def recommend_migration_strategy(self) -> Dict[str, Any]:
+        """Analyze project and recommend migration approach."""
+        transform_pkgs = self.get_transformation_packages()
+        orchestration_pkgs = self.get_orchestration_packages()
+        has_dependencies = self.has_cross_package_dependencies()
+        
+        recommendations = {
+            'strategy': 'mixed',
+            'components': [],
+            'rationale': [],
+            'dbt_packages': transform_pkgs,
+            'airflow_packages': orchestration_pkgs,
+            'needs_master_dag': has_dependencies and len(self.entry_points) > 1
+        }
+        
+        if len(transform_pkgs) == len(self.packages):
+            # All transformation packages
+            if has_dependencies:
+                recommendations['strategy'] = 'dbt_with_orchestration'
+                recommendations['components'] = ['dbt', 'airflow_orchestrator']
+                recommendations['rationale'].append("All packages are transformation-only but have dependencies")
+            else:
+                recommendations['strategy'] = 'dbt_only'
+                recommendations['components'] = ['dbt']
+                recommendations['rationale'].append("All packages are independent transformations")
+        
+        elif len(orchestration_pkgs) == len(self.packages):
+            # All orchestration packages
+            recommendations['strategy'] = 'airflow_only'
+            recommendations['components'] = ['airflow']
+            recommendations['rationale'].append("All packages contain orchestration logic")
+        
+        else:
+            # Mixed packages
+            recommendations['strategy'] = 'mixed'
+            recommendations['components'] = ['airflow', 'dbt']
+            recommendations['rationale'].append("Mix of transformation and orchestration packages")
+        
+        if has_dependencies:
+            recommendations['rationale'].append("Cross-package dependencies require orchestration")
+            
+        return recommendations
+
+
 class MigrationReport(BaseModel):
     """Migration analysis and coverage report."""
     package_name: str
     source_file: str
-    migration_mode: Literal["airflow", "dbt", "mixed"] 
+    migration_mode: Literal["airflow", "dbt", "mixed", "dbt_only", "dbt_with_orchestration", "airflow_only"] 
     total_executables: int
     supported_executables: int
     unsupported_executables: List[str] = Field(default_factory=list)
@@ -222,3 +358,35 @@ class MigrationReport(BaseModel):
     warnings: List[str] = Field(default_factory=list)
     errors: List[str] = Field(default_factory=list)
     success: bool = True
+
+
+class ProjectMigrationReport(BaseModel):
+    """Complete project migration analysis and report."""
+    project_name: str
+    project_version: str
+    source_path: str
+    total_packages: int
+    transformation_packages: List[str] = Field(default_factory=list)
+    orchestration_packages: List[str] = Field(default_factory=list)
+    dependencies_count: int
+    migration_strategy: Dict[str, Any] = Field(default_factory=dict)
+    package_reports: Dict[str, MigrationReport] = Field(default_factory=dict)
+    generated_artifacts: Dict[str, List[str]] = Field(default_factory=dict)
+    warnings: List[str] = Field(default_factory=list)
+    errors: List[str] = Field(default_factory=list)
+    success: bool = True
+
+
+def ir_to_json(ir_obj: Union[IRPackage, IRProject]) -> str:
+    """Convert IR object to JSON string."""
+    return ir_obj.model_dump_json(indent=2)
+
+
+def json_to_ir_package(json_str: str) -> IRPackage:
+    """Convert JSON string to IRPackage."""
+    return IRPackage.model_validate_json(json_str)
+
+
+def json_to_ir_project(json_str: str) -> IRProject:
+    """Convert JSON string to IRProject."""
+    return IRProject.model_validate_json(json_str)

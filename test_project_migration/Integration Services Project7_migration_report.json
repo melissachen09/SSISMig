@@ -1,0 +1,82 @@
+{
+  "project_name": "Integration Services Project7",
+  "project_version": "1.0",
+  "source_path": "ssis/Integration Services Project7",
+  "total_packages": 3,
+  "transformation_packages": [
+    "Q2",
+    "Q1",
+    "Q3"
+  ],
+  "orchestration_packages": [],
+  "dependencies_count": 0,
+  "migration_strategy": {
+    "strategy": "dbt_only",
+    "components": [
+      "dbt"
+    ],
+    "rationale": [
+      "All packages are independent transformations"
+    ],
+    "dbt_packages": [
+      "Q2",
+      "Q1",
+      "Q3"
+    ],
+    "airflow_packages": [],
+    "needs_master_dag": false
+  },
+  "package_reports": {
+    "Q2": {
+      "package_name": "Q2",
+      "source_file": "Q2.dtsx",
+      "migration_mode": "dbt_only",
+      "total_executables": 2,
+      "supported_executables": 2,
+      "unsupported_executables": [],
+      "encrypted_properties": [],
+      "manual_review_items": [],
+      "sql_dialect_conversions": [],
+      "generated_files": [],
+      "warnings": [],
+      "errors": [],
+      "success": true
+    },
+    "Q1": {
+      "package_name": "Q1",
+      "source_file": "Q1.dtsx",
+      "migration_mode": "dbt_only",
+      "total_executables": 1,
+      "supported_executables": 1,
+      "unsupported_executables": [],
+      "encrypted_properties": [],
+      "manual_review_items": [],
+      "sql_dialect_conversions": [],
+      "generated_files": [],
+      "warnings": [],
+      "errors": [],
+      "success": true
+    },
+    "Q3": {
+      "package_name": "Q3",
+      "source_file": "Q3.dtsx",
+      "migration_mode": "dbt_only",
+      "total_executables": 1,
+      "supported_executables": 1,
+      "unsupported_executables": [],
+      "encrypted_properties": [],
+      "manual_review_items": [],
+      "sql_dialect_conversions": [],
+      "generated_files": [],
+      "warnings": [],
+      "errors": [],
+      "success": true
+    }
+  },
+  "generated_artifacts": {
+    "dbt": []
+  },
+  "warnings": [],
+  "errors": [],
+  "success": true
+}

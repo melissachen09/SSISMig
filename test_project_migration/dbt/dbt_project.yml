@@ -1,0 +1,74 @@
+analysis-paths:
+- analyses
+clean-targets:
+- target
+- dbt_packages
+description: 'dbt project generated from SSIS project: Integration Services Project7'
+macro-paths:
+- macros
+model-paths:
+- models
+models:
+  integration services project7_dbt:
+    materialized: view
+    q1:
+      intermediate:
+        +tags:
+        - intermediate
+        materialized: table
+      marts:
+        +tags:
+        - marts
+        materialized: table
+      staging:
+        +tags:
+        - staging
+        materialized: view
+    q2:
+      intermediate:
+        +tags:
+        - intermediate
+        materialized: table
+      marts:
+        +tags:
+        - marts
+        materialized: table
+      staging:
+        +tags:
+        - staging
+        materialized: view
+    q3:
+      intermediate:
+        +tags:
+        - intermediate
+        materialized: table
+      marts:
+        +tags:
+        - marts
+        materialized: table
+      staging:
+        +tags:
+        - staging
+        materialized: view
+    shared:
+      +tags:
+      - shared
+      materialized: view
+name: integration services project7_dbt
+profile: integration services project7_profile
+require-dbt-version: '>=1.7.0'
+seed-paths:
+- seeds
+snapshot-paths:
+- snapshots
+target-path: target
+test-paths:
+- tests
+vars:
+  generated_at: '2025-08-24T14:48:45.879244'
+  project_name: Integration Services Project7
+  ssis_packages:
+  - Q2
+  - Q1
+  - Q3
+version: '1.0'

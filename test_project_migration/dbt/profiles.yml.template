@@ -1,0 +1,25 @@
+integration services project7_profile:
+  outputs:
+    dev:
+      account: '{{ env_var("SNOWFLAKE_ACCOUNT") }}'
+      database: '{{ env_var("SNOWFLAKE_DATABASE") }}'
+      keepalives_idle: 240
+      password: '{{ env_var("SNOWFLAKE_PASSWORD") }}'
+      role: '{{ env_var("SNOWFLAKE_ROLE", "TRANSFORMER") }}'
+      schema: integration services project7_dev
+      threads: 4
+      type: snowflake
+      user: '{{ env_var("SNOWFLAKE_USER") }}'
+      warehouse: '{{ env_var("SNOWFLAKE_WAREHOUSE") }}'
+    prod:
+      account: '{{ env_var("SNOWFLAKE_ACCOUNT") }}'
+      database: '{{ env_var("SNOWFLAKE_DATABASE") }}'
+      keepalives_idle: 240
+      password: '{{ env_var("SNOWFLAKE_PASSWORD") }}'
+      role: '{{ env_var("SNOWFLAKE_ROLE", "TRANSFORMER") }}'
+      schema: integration services project7_prod
+      threads: 8
+      type: snowflake
+      user: '{{ env_var("SNOWFLAKE_USER") }}'
+      warehouse: '{{ env_var("SNOWFLAKE_WAREHOUSE") }}'
+  target: dev

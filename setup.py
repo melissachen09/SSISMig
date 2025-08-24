@@ -22,6 +22,7 @@ setup(
     entry_points={
         "console_scripts": [
             "ssis-migrate=cli.main:main",
+            "ssis-project-migrate=ssis_project_migrator:cli",
         ],
     },
     classifiers=[
