@@ -59,10 +59,32 @@ class DTSXReader:
                 
             logger.info(f"Loading DTSX file: {self.file_path}")
             
-            # Parse XML with namespace awareness
-            parser = etree.XMLParser(ns_clean=True, recover=True)
-            self.tree = etree.parse(str(self.file_path), parser)
-            self.root = self.tree.getroot()
+            # Parse XML with namespace awareness and encoding handling
+            parser = etree.XMLParser(ns_clean=True, recover=True, encoding='utf-8')
+            
+            # Try different encodings for DTSX files
+            encodings = ['utf-8', 'utf-16', 'windows-1252', 'iso-8859-1']
+            
+            for encoding in encodings:
+                try:
+                    with open(self.file_path, 'rb') as f:
+                        content = f.read()
+                    
+                    # Try to decode with current encoding
+                    try:
+                        decoded_content = content.decode(encoding)
+                        self.tree = etree.fromstring(decoded_content.encode('utf-8'), parser)
+                        self.root = self.tree
+                        break
+                    except UnicodeDecodeError:
+                        continue
+                except Exception:
+                    continue
+            else:
+                # If all encodings fail, try parsing directly
+                parser = etree.XMLParser(ns_clean=True, recover=True)
+                self.tree = etree.parse(str(self.file_path), parser)
+                self.root = self.tree.getroot()
             
             # Validate root element
             if self.root.tag != f"{{{self.namespaces['DTS']}}}Executable":
@@ -81,7 +103,7 @@ class DTSXReader:
         Returns:
             Dictionary containing package metadata
         """
-        if not self.root:
+        if self.root is None:
             raise DTSXParseError("DTSX file not loaded")
             
         metadata = {}
@@ -115,7 +137,7 @@ class DTSXReader:
         Returns:
             List of Parameter objects
         """
-        if not self.root:
+        if self.root is None:
             raise DTSXParseError("DTSX file not loaded")
             
         parameters = []
@@ -159,7 +181,7 @@ class DTSXReader:
         Returns:
             List of Variable objects
         """
-        if not self.root:
+        if self.root is None:
             raise DTSXParseError("DTSX file not loaded")
             
         variables = []
@@ -203,7 +225,7 @@ class DTSXReader:
         Returns:
             List of ConnectionManager objects
         """
-        if not self.root:
+        if self.root is None:
             raise DTSXParseError("DTSX file not loaded")
             
         connections = []
@@ -253,7 +275,7 @@ class DTSXReader:
         Returns:
             List of Executable objects
         """
-        if not self.root:
+        if self.root is None:
             raise DTSXParseError("DTSX file not loaded")
             
         executables = []
