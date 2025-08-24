@@ -149,8 +149,7 @@ Thumbs.db
 
 # SSIS Migration specific
 *.dtsx.bak
-output/
-output_project/
+output*/
 test_project_migration/
 temp/
 logs/
