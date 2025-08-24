@@ -49,7 +49,7 @@ class DTSXToIRConverter:
         report = MigrationReport(
             package_name=dtsx_path.stem,
             source_file=str(dtsx_path),
-            migration_mode="auto",  # Will be determined later
+            migration_mode="airflow",  # Will be determined later
             total_executables=0,
             supported_executables=0
         )
@@ -79,7 +79,7 @@ class DTSXToIRConverter:
             # Parse data flow components
             dataflow_parser = DataFlowParser(reader.namespaces)
             for executable in executables:
-                if executable.type.value == "DataFlow":
+                if str(executable.type) == "DataFlow":
                     # Find the corresponding XML element
                     exe_elements = reader.root.xpath(
                         f".//DTS:Executable[@DTS:refId='{executable.id}']",
@@ -121,7 +121,7 @@ class DTSXToIRConverter:
             report.supported_executables = len([exe for exe in executables if exe.type])
             report.unsupported_executables = [
                 exe.object_name for exe in executables 
-                if not exe.type or exe.type.value == "Unknown"
+                if not exe.type or str(exe.type) == "Unknown"
             ]
             
             # Check for encrypted properties
@@ -184,7 +184,7 @@ class DTSXToIRConverter:
         items = []
         
         # Check for script tasks
-        script_tasks = [exe for exe in ir_package.executables if exe.type.value == "ScriptTask"]
+        script_tasks = [exe for exe in ir_package.executables if str(exe.type) == "ScriptTask"]
         if script_tasks:
             items.append(f"Found {len(script_tasks)} Script Tasks - manual conversion required")
         
@@ -197,19 +197,19 @@ class DTSXToIRConverter:
         unsupported_conn_types = ["FTP", "HTTP", "SMTP"]
         unsupported_conns = [
             cm for cm in ir_package.connection_managers 
-            if cm.type.value in unsupported_conn_types
+            if str(cm.type) in unsupported_conn_types
         ]
         if unsupported_conns:
             items.append(f"Found {len(unsupported_conns)} connections with limited support")
         
         # Check for encrypted packages
-        if ir_package.protection_level.value != "DontSaveSensitive":
+        if str(ir_package.protection_level) != "DontSaveSensitive":
             items.append("Encrypted package - verify all sensitive data is properly handled")
         
         # Check for loops (complex control flow)
         loop_tasks = [
             exe for exe in ir_package.executables 
-            if exe.type.value in ["ForEachLoop", "ForLoop"]
+            if str(exe.type) in ["ForEachLoop", "ForLoop"]
         ]
         if loop_tasks:
             items.append(f"Found {len(loop_tasks)} loop containers - verify dynamic mapping")
@@ -243,7 +243,7 @@ class DTSXToIRConverter:
         
         # Check for data flow consistency
         for exe in ir_package.executables:
-            if exe.type.value == "DataFlow":
+            if str(exe.type) == "DataFlow":
                 # Validate component wiring
                 component_ids = {comp.id for comp in exe.components}
                 for comp in exe.components:

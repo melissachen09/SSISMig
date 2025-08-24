@@ -216,10 +216,10 @@ dag = DAG(
     catchup=False,
     params={
         {% for param in parameters %}
-        "{{ param.name }}": Param({{ param.value | default("None") }}, type="{{ param.type.lower() }}"),
+        "{{ param.name }}": Param({{ param.value | default("None") }}, type="{{ (param.type or 'str') | lower }}"),
         {% endfor %}
         {% for var in variables %}
-        "{{ var.name }}": Param({{ var.value | default("None") }}, type="{{ var.type.lower() }}"),
+        "{{ var.name }}": Param({{ var.value | default("None") }}, type="{{ (var.type or 'str') | lower }}"),
         {% endfor %}
     },
     render_template_as_native_obj=True,
@@ -234,16 +234,16 @@ def log_task_complete(task_name):
     logging.info(f"Completed SSIS migrated task: {task_name}")
 
 {% for executable in executables %}
-{% if executable.type == "ExecuteSQL" %}
+{% if "EXECUTE_SQL" in str(executable.type) %}
 # Task: {{ executable.object_name }} (Execute SQL)
-{{ executable.object_name.replace(' ', '_').lower() }} = SnowflakeOperator(
+{{ executable.object_name.replace(' ', '_').lower() }}_task = SnowflakeOperator(
     task_id='{{ executable.object_name.replace(" ", "_").lower() }}',
     sql=\"\"\"{{ executable.sql | default("-- TODO: Add SQL statement") }}\"\"\",
     snowflake_conn_id=SNOWFLAKE_CONN_ID,
     dag=dag,
 )
 
-{% elif executable.type == "DataFlow" %}
+{% elif "DATA_FLOW" in str(executable.type) %}
 # Task Group: {{ executable.object_name }} (Data Flow)
 with TaskGroup(group_id='{{ executable.object_name.replace(" ", "_").lower() }}', dag=dag) as {{ executable.object_name.replace(' ', '_').lower() }}_group:
     {% for component in executable.components %}
@@ -254,7 +254,7 @@ with TaskGroup(group_id='{{ executable.object_name.replace(" ", "_").lower() }}'
     )
     {% endfor %}
 
-{% elif executable.type == "ScriptTask" %}
+{% elif "SCRIPT" in str(executable.type) %}
 # Task: {{ executable.object_name }} (Script Task)
 def {{ executable.object_name.replace(' ', '_').lower() }}_func(**context):
     # TODO: Implement script logic from SSIS Script Task
@@ -263,7 +263,7 @@ def {{ executable.object_name.replace(' ', '_').lower() }}_func(**context):
     log_task_complete("{{ executable.object_name }}")
     return "success"
 
-{{ executable.object_name.replace(' ', '_').lower() }} = PythonOperator(
+{{ executable.object_name.replace(' ', '_').lower() }}_task = PythonOperator(
     task_id='{{ executable.object_name.replace(" ", "_").lower() }}',
     python_callable={{ executable.object_name.replace(' ', '_').lower() }}_func,
     dag=dag,
@@ -272,7 +272,7 @@ def {{ executable.object_name.replace(' ', '_').lower() }}_func(**context):
 {% else %}
 # Task: {{ executable.object_name }} ({{ executable.type }})
 # TODO: Implement {{ executable.type }} task type
-{{ executable.object_name.replace(' ', '_').lower() }} = DummyOperator(
+{{ executable.object_name.replace(' ', '_').lower() }}_task = DummyOperator(
     task_id='{{ executable.object_name.replace(" ", "_").lower() }}',
     dag=dag,
 )

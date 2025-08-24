@@ -29,7 +29,13 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-@click.command()
+@click.group()
+def cli():
+    """SSIS to Airflow/dbt Migration Tool."""
+    pass
+
+
+@cli.command()
 @click.option(
     '--in', 'input_file',
     required=True,
@@ -236,12 +242,6 @@ def main(input_file: Path, mode: str, output_dir: Path, password: Optional[str],
         sys.exit(1)
 
 
-@click.group()
-def cli():
-    """SSIS to Airflow/dbt Migration Tool."""
-    pass
-
-
 @cli.command()
 @click.argument('dtsx_file', type=click.Path(exists=True, path_type=Path))
 @click.option('--password', type=str, help='Password for encrypted packages')
@@ -254,7 +254,7 @@ def analyze(dtsx_file: Path, password: Optional[str]):
         ir_package, report = converter.convert_file(str(dtsx_file))
         
         click.echo(f"Package: {ir_package.package_name}")
-        click.echo(f"Protection Level: {ir_package.protection_level.value}")
+        click.echo(f"Protection Level: {ir_package.protection_level}")
         click.echo(f"Parameters: {len(ir_package.parameters)}")
         click.echo(f"Variables: {len(ir_package.variables)}")
         click.echo(f"Connections: {len(ir_package.connection_managers)}")
@@ -265,7 +265,7 @@ def analyze(dtsx_file: Path, password: Optional[str]):
             click.echo("\nTask Types:")
             task_types = {}
             for exe in ir_package.executables:
-                task_type = exe.type.value
+                task_type = str(exe.type)
                 task_types[task_type] = task_types.get(task_type, 0) + 1
             
             for task_type, count in task_types.items():
